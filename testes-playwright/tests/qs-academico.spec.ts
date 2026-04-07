@@ -5,6 +5,30 @@ test.describe('QS Acadêmico — Testes do Sistema de Notas', () => {
     await page.goto('/');
   });
 
+  // ========== GRUPO 0: Página e Formulário ==========
+
+  test.describe('Página e Formulário', () => {
+
+    test('deve ter o título correto', async ({ page }) => {
+      await expect(page).toHaveTitle(/QS Acadêmico/);
+    });
+
+    test('deve exibir a seção de cadastro', async ({ page }) => {
+      await expect(page.locator('#secao-cadastro')).toBeVisible();
+    });
+
+    test('deve ter o placeholder correto no campo Nome do Aluno', async ({ page }) => {
+      await expect(page.getByLabel('Nome do Aluno')).toHaveAttribute(
+        'placeholder', 'Digite o nome completo'
+      );
+    });
+
+    test('deve exibir mensagem quando a tabela está vazia', async ({ page }) => {
+      await expect(page.getByText('Nenhum aluno cadastrado.')).toBeVisible();
+    });
+
+  });
+
   // ========== GRUPO 1: Cadastro de Alunos ==========
 
   test.describe('Cadastro de Alunos', () => {
@@ -142,6 +166,19 @@ test.describe('QS Acadêmico — Testes do Sistema de Notas', () => {
       await expect(page.locator('#tabela-alunos tbody td.texto-central')).toBeVisible();
     });
 
+    test('deve remover o nome do aluno da tabela após exclusão', async ({ page }) => {
+      await page.getByLabel('Nome do Aluno').fill('João Silva');
+      await page.getByLabel('Nota 1').fill('8');
+      await page.getByLabel('Nota 2').fill('7');
+      await page.getByLabel('Nota 3').fill('9');
+      await page.getByRole('button', { name: 'Cadastrar' }).click();
+
+      await page.getByRole('button', { name: 'Excluir João Silva' }).click();
+
+      // Verificar que o texto NÃO está mais visível após exclusão
+      await expect(page.locator('#tabela-alunos tbody')).not.toContainText('João Silva');
+    });
+
   });
 
   // ========== GRUPO 6: Estatísticas ==========
@@ -174,6 +211,27 @@ test.describe('QS Acadêmico — Testes do Sistema de Notas', () => {
       await expect(page.locator('#stat-aprovados')).toHaveText('1');
       await expect(page.locator('#stat-recuperacao')).toHaveText('1');
       await expect(page.locator('#stat-reprovados')).toHaveText('1');
+    });
+
+    test('deve exibir total de 5 alunos após cinco cadastros', async ({ page }) => {
+      const alunos = [
+        { nome: 'Aluno A', n1: '8', n2: '7', n3: '9' },
+        { nome: 'Aluno B', n1: '5', n2: '6', n3: '7' },
+        { nome: 'Aluno C', n1: '2', n2: '3', n3: '4' },
+        { nome: 'Aluno D', n1: '9', n2: '10', n3: '8' },
+        { nome: 'Aluno E', n1: '4', n2: '5', n3: '6' },
+      ];
+
+      for (const aluno of alunos) {
+        await page.getByLabel('Nome do Aluno').fill(aluno.nome);
+        await page.getByLabel('Nota 1').fill(aluno.n1);
+        await page.getByLabel('Nota 2').fill(aluno.n2);
+        await page.getByLabel('Nota 3').fill(aluno.n3);
+        await page.getByRole('button', { name: 'Cadastrar' }).click();
+      }
+
+      // Verificar conteúdo do card de estatística
+      await expect(page.locator('#stat-total')).toHaveText('5');
     });
 
   });
@@ -220,7 +278,45 @@ test.describe('QS Acadêmico — Testes do Sistema de Notas', () => {
 
   });
 
-  // ========== GRUPO 8: Múltiplos Cadastros ==========
+  // ========== GRUPO 8: Limpar Tudo ==========
+
+  test.describe('Limpar Tudo', () => {
+
+    test('deve remover todos os alunos ao confirmar o diálogo', async ({ page }) => {
+      await page.getByLabel('Nome do Aluno').fill('Aluno Um');
+      await page.getByLabel('Nota 1').fill('7');
+      await page.getByLabel('Nota 2').fill('8');
+      await page.getByLabel('Nota 3').fill('9');
+      await page.getByRole('button', { name: 'Cadastrar' }).click();
+
+      // Aceitar o diálogo de confirmação (equivale a clicar "OK")
+      page.on('dialog', async dialog => {
+        await dialog.accept();
+      });
+      await page.getByRole('button', { name: 'Limpar Tudo' }).click();
+
+      await expect(page.getByText('Nenhum aluno cadastrado.')).toBeVisible();
+    });
+
+    test('não deve remover alunos ao cancelar o diálogo', async ({ page }) => {
+      await page.getByLabel('Nome do Aluno').fill('Aluno Um');
+      await page.getByLabel('Nota 1').fill('7');
+      await page.getByLabel('Nota 2').fill('8');
+      await page.getByLabel('Nota 3').fill('9');
+      await page.getByRole('button', { name: 'Cadastrar' }).click();
+
+      // Rejeitar o diálogo (equivale a clicar "Cancelar")
+      page.on('dialog', async dialog => {
+        await dialog.dismiss();
+      });
+      await page.getByRole('button', { name: 'Limpar Tudo' }).click();
+
+      await expect(page.locator('#tabela-alunos tbody tr')).toHaveCount(1);
+    });
+
+  });
+
+  // ========== GRUPO 9: Múltiplos Cadastros ==========
 
   test.describe('Múltiplos Cadastros', () => {
 
